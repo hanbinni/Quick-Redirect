@@ -106,10 +106,10 @@
               autocomplete="off"
               aria-label="이동할 페이지 입력"
             />
-            <button class="qr-send" type="submit" aria-label="전송" title="전송">
+            <button class="qr-send" type="submit" aria-label="전송" title="전송" disabled>
               <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="m5 12 14-7-4 14-3.2-5.1L5 12Z" />
-                <path d="m11.8 13.9 3.1-3.1" />
+                <path d="M7 17 17 7" />
+                <path d="M9 7h8v8" />
               </svg>
             </button>
           </div>
@@ -141,6 +141,7 @@
     state.fab = root.querySelector(".qr-fab");
 
     state.fab.addEventListener("click", togglePanel);
+    state.input.addEventListener("input", syncComposerState);
 
     root.querySelector(".qr-close").addEventListener("click", closePanel);
 
@@ -624,7 +625,13 @@
   function setBusy(isBusy) {
     state.isBusy = isBusy;
     state.input.disabled = isBusy;
-    state.sendButton.disabled = isBusy;
+    syncComposerState();
+  }
+
+  function syncComposerState() {
+    const hasText = Boolean(state.input.value.trim());
+    state.sendButton.disabled = state.isBusy || !hasText;
+    state.root.classList.toggle("qr-has-input", hasText && !state.isBusy);
   }
 
   function getElementLabel(element) {

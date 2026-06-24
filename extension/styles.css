@@ -453,7 +453,7 @@
   stroke: currentColor;
   stroke-linecap: round;
   stroke-linejoin: round;
-  stroke-width: 1.8;
+  stroke-width: 2;
 }
 
 .qr-send:hover {
@@ -463,8 +463,17 @@
 
 .qr-send:disabled,
 .qr-input:disabled {
-  opacity: 0.55;
   cursor: not-allowed;
+}
+
+.qr-send:disabled {
+  background: #eef0fb;
+  color: #a9b2dc;
+  transform: none;
+}
+
+.qr-input:disabled {
+  opacity: 0.6;
 }
 
 .qr-choice-message {
