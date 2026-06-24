@@ -1,0 +1,16 @@
+{
+  "name": "quick-redirect-lambda",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "start:mock": "node mockServer.js",
+    "check": "node --check index.js && node --check openaiClient.js && node --check mockServer.js"
+  },
+  "dependencies": {
+    "openai": "^6.0.0"
+  },
+  "devDependencies": {}
+}
