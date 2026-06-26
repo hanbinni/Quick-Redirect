@@ -9,6 +9,38 @@
   const SAME_SITE_FETCH_TIMEOUT_MS = 800;
   const HIGH_CONFIDENCE = 0.85;
   const MEDIUM_CONFIDENCE = 0.6;
+  const DEFAULT_INPUT_PLACEHOLDER = "메시지를 입력하세요";
+
+  const STATUS_COPY = {
+    idle: {
+      label: "바로 찾을 준비가 됐어요",
+      placeholder: DEFAULT_INPUT_PLACEHOLDER
+    },
+    thinking: {
+      label: "AI가 후보를 고르고 있어요",
+      placeholder: "..."
+    },
+    analyzing: {
+      label: "페이지를 분석하고 있어요",
+      placeholder: "분석 중..."
+    },
+    found: {
+      label: "이동할 페이지를 찾았어요",
+      placeholder: DEFAULT_INPUT_PLACEHOLDER
+    },
+    redirecting: {
+      label: "페이지로 이동 중이에요",
+      placeholder: "이동 중..."
+    },
+    done: {
+      label: "선택을 기다리고 있어요",
+      placeholder: DEFAULT_INPUT_PLACEHOLDER
+    },
+    error: {
+      label: "다시 시도할 수 있어요",
+      placeholder: DEFAULT_INPUT_PLACEHOLDER
+    }
+  };
 
   const INTENT_GROUPS = [
     {
@@ -46,10 +78,12 @@
     messages: null,
     input: null,
     sendButton: null,
+    statusText: null,
     panel: null,
     fab: null,
     isBusy: false,
     isOpen: false,
+    status: "idle",
     hasGreeted: false,
     closeTimer: null
   };
@@ -87,7 +121,7 @@
             <span class="qr-brand-mark">${brandMarkMarkup("qr-brand-icon")}</span>
             <span class="qr-brand-copy">
               <span class="qr-title">Quick Redirect</span>
-              <span class="qr-subtitle"><i></i> 바로 찾을 준비가 됐어요</span>
+              <span class="qr-subtitle"><i></i><span class="qr-status-text">바로 찾을 준비가 됐어요</span></span>
             </span>
           </div>
           <button class="qr-close" type="button" aria-label="Close Quick Redirect" title="닫기">
@@ -108,8 +142,8 @@
             />
             <button class="qr-send" type="submit" aria-label="전송" title="전송" disabled>
               <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M7 17 17 7" />
-                <path d="M9 7h8v8" />
+                <circle cx="12" cy="12" r="8.2" />
+                <path d="M10 8.8 14 12l-4 3.2" />
               </svg>
             </button>
           </div>
@@ -137,8 +171,11 @@
     state.messages = root.querySelector(".qr-messages");
     state.input = root.querySelector(".qr-input");
     state.sendButton = root.querySelector(".qr-send");
+    state.statusText = root.querySelector(".qr-status-text");
     state.panel = root.querySelector(".qr-panel");
     state.fab = root.querySelector(".qr-fab");
+
+    setUiStatus("idle");
 
     state.fab.addEventListener("click", togglePanel);
     state.input.addEventListener("input", syncComposerState);
@@ -216,43 +253,60 @@
 
     state.input.value = "";
     setBusy(true);
+    setUiStatus("analyzing");
     addUserMessage(userQuery);
-    const loading = addLoadingMessage();
+    const loading = addLoadingMessage("페이지를 분석하고 있어요");
+    let keepBusy = false;
 
     try {
       const { candidates } = await buildCandidates(userQuery);
-      loading.remove();
 
       if (!candidates.length) {
-        addBotMessage("관련 페이지를 찾지 못했습니다. 다른 표현으로 다시 시도해주세요.");
+        loading.remove();
+        setUiStatus("error");
+        addBotMessage("현재 페이지에서 이동할 만한 링크를 찾지 못했어요.\n다른 표현으로 다시 시도해주세요.", "qr-error-message");
         return;
       }
 
+      setUiStatus("thinking");
+      updateLoadingMessage(loading, "AI가 후보를 고르고 있어요");
       const result = await requestSelection(userQuery, candidates);
+      loading.remove();
       const selectedUrl = normalizeCandidateUrl(result.selectedUrl);
       const selectedCandidate = candidates.find((candidate) => candidate.url === selectedUrl);
       const confidence = Number(result.confidence || 0);
 
       if (selectedCandidate && confidence >= HIGH_CONFIDENCE) {
-        addBotMessage(`${selectedCandidate.title || "선택한 페이지"}로 이동합니다.`);
-        window.location.assign(selectedCandidate.url);
+        setUiStatus("found");
+        addBotMessage(`${selectedCandidate.title || "선택한"} 페이지를 찾았어요.`);
+        setUiStatus("redirecting");
+        keepBusy = true;
+        addBotMessage("페이지로 이동합니다.");
+        window.setTimeout(() => window.location.assign(selectedCandidate.url), 420);
         return;
       }
 
       if (selectedCandidate && confidence >= MEDIUM_CONFIDENCE) {
+        setUiStatus("found");
         const ordered = [selectedCandidate]
           .concat(candidates.filter((candidate) => candidate.url !== selectedCandidate.url))
           .slice(0, 3);
         showCandidateChoices(ordered, "다음 중 어디로 이동할까요?");
+        setUiStatus("done");
         return;
       }
 
-      addBotMessage("관련 페이지를 찾지 못했습니다. 다른 표현으로 다시 시도해주세요.");
+      setUiStatus("error");
+      addBotMessage("관련 페이지를 찾지 못했습니다.\n다른 표현으로 다시 시도해주세요.", "qr-error-message");
     } catch (error) {
       loading.remove();
+      console.error("[Quick Redirect]", error);
+      setUiStatus("error");
       addBotMessage(getFriendlyError(error));
     } finally {
-      setBusy(false);
+      if (!keepBusy) {
+        setBusy(false);
+      }
     }
   }
 
@@ -549,7 +603,15 @@
           <path d="m7 4 6 6-6 6" />
         </svg>
       `;
-      button.addEventListener("click", () => window.location.assign(candidate.url));
+      button.addEventListener("click", () => {
+        setBusy(true);
+        setUiStatus("redirecting");
+        Array.from(list.querySelectorAll(".qr-choice")).forEach((choice) => {
+          choice.disabled = true;
+        });
+        addBotMessage(`${candidate.title || "선택한 페이지"}로 이동합니다.`);
+        window.setTimeout(() => window.location.assign(candidate.url), 240);
+      });
       list.appendChild(button);
     });
 
@@ -585,12 +647,13 @@
     return message;
   }
 
-  function addLoadingMessage() {
+  function addLoadingMessage(label) {
     const row = createBotRow();
     const message = document.createElement("div");
     message.className = "qr-message qr-bot qr-loading";
     message.innerHTML = `
-      <span class="qr-loading-label">찾는 중</span>
+      <span class="qr-loading-icon" aria-hidden="true">${statusIconMarkup()}</span>
+      <span class="qr-loading-label">${escapeHtml(label || "찾는 중")}</span>
       <span class="qr-loading-dots" aria-hidden="true">
         <i></i><i></i><i></i>
       </span>
@@ -599,6 +662,22 @@
     state.messages.appendChild(row);
     scrollMessages();
     return row;
+  }
+
+  function updateLoadingMessage(row, label) {
+    const labelElement = row?.querySelector(".qr-loading-label");
+    if (labelElement) {
+      labelElement.textContent = label;
+    }
+  }
+
+  function statusIconMarkup() {
+    return `
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path class="qr-status-ring" d="M12 3.5a8.5 8.5 0 1 1-7.45 4.4" />
+        <path class="qr-status-bolt" d="M12.8 5.8 8.9 12h3.25l-.95 6.2 4.1-7h-3.1l.6-5.4Z" />
+      </svg>
+    `;
   }
 
   function createBotRow() {
@@ -625,6 +704,7 @@
   function setBusy(isBusy) {
     state.isBusy = isBusy;
     state.input.disabled = isBusy;
+    state.root.classList.toggle("qr-busy", isBusy);
     syncComposerState();
   }
 
@@ -632,6 +712,22 @@
     const hasText = Boolean(state.input.value.trim());
     state.sendButton.disabled = state.isBusy || !hasText;
     state.root.classList.toggle("qr-has-input", hasText && !state.isBusy);
+  }
+
+  function setUiStatus(status) {
+    const nextStatus = STATUS_COPY[status] ? status : "idle";
+    const copy = STATUS_COPY[nextStatus];
+
+    state.status = nextStatus;
+    state.root.dataset.qrStatus = nextStatus;
+    state.root.classList.toggle("qr-status-active", nextStatus !== "idle");
+
+    if (state.statusText) {
+      state.statusText.textContent = copy.label;
+    }
+    if (state.input) {
+      state.input.placeholder = state.isBusy ? copy.placeholder : DEFAULT_INPUT_PLACEHOLDER;
+    }
   }
 
   function getElementLabel(element) {
@@ -743,11 +839,14 @@
   function getFriendlyError(error) {
     const message = error instanceof Error ? error.message : "";
     if (message.includes("not configured")) {
-      return "API 주소가 아직 설정되지 않았습니다. extension/config.js를 확인해주세요.";
+      return "API 주소가 아직 연결되지 않았어요.\nextension/config.js의 QR_API_ENDPOINT를 확인해주세요.";
     }
-    if (message.includes("aborted") || message.includes("timeout")) {
-      return "응답 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.";
+    if (message.includes("aborted") || message.includes("timeout") || message.includes("Failed to fetch")) {
+      return "응답 시간이 초과됐어요.\n잠시 후 다시 시도해주세요.";
     }
-    return "관련 페이지를 찾는 중 문제가 발생했습니다. 다른 표현으로 다시 시도해주세요.";
+    if (message.includes("API request failed")) {
+      return "AI 선택 서버에서 문제가 발생했어요.\n잠시 후 다시 시도해주세요.";
+    }
+    return "관련 페이지를 찾는 중 문제가 발생했어요.\n다른 표현으로 다시 시도해주세요.";
   }
 })();

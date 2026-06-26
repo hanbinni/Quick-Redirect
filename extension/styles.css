@@ -48,6 +48,16 @@
   pointer-events: none;
 }
 
+.qr-busy .qr-fab::before {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 2px solid rgba(79, 103, 232, 0.22);
+  animation: qr-soft-pulse 1200ms ease-out infinite;
+  pointer-events: none;
+}
+
 .qr-fab.qr-opening {
   animation: qr-fab-open 420ms cubic-bezier(0.2, 0.9, 0.25, 1);
 }
@@ -198,6 +208,7 @@
 }
 
 .qr-brand-mark {
+  position: relative;
   width: 34px;
   height: 34px;
   flex: 0 0 34px;
@@ -205,6 +216,52 @@
   place-items: center;
   border-radius: 50%;
   background: #4f67e8;
+  transition:
+    background-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.qr-brand-mark::after {
+  content: "";
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 10px;
+  height: 10px;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  background: #34b27b;
+  box-shadow: 0 2px 6px rgba(20, 28, 45, 0.14);
+  transition:
+    background-color 160ms ease,
+    transform 160ms ease;
+}
+
+.qr-root[data-qr-status="analyzing"] .qr-brand-mark,
+.qr-root[data-qr-status="thinking"] .qr-brand-mark {
+  box-shadow: 0 0 0 5px rgba(79, 103, 232, 0.08);
+}
+
+.qr-root[data-qr-status="analyzing"] .qr-brand-mark::after,
+.qr-root[data-qr-status="thinking"] .qr-brand-mark::after {
+  background: #8b7cff;
+  animation: qr-status-dot 920ms ease-in-out infinite;
+}
+
+.qr-root[data-qr-status="found"] .qr-brand-mark::after,
+.qr-root[data-qr-status="done"] .qr-brand-mark::after {
+  background: #34b27b;
+  transform: scale(1.08);
+}
+
+.qr-root[data-qr-status="redirecting"] .qr-brand-mark::after {
+  background: #00c1e0;
+  animation: qr-status-dot 760ms ease-in-out infinite;
+}
+
+.qr-root[data-qr-status="error"] .qr-brand-mark::after {
+  background: #ff6b6b;
 }
 
 .qr-brand-icon {
@@ -242,6 +299,25 @@
   border-radius: 50%;
   background: #34b27b;
   box-shadow: 0 0 0 2px rgba(52, 178, 123, 0.12);
+  transition:
+    background-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.qr-root[data-qr-status="analyzing"] .qr-subtitle i,
+.qr-root[data-qr-status="thinking"] .qr-subtitle i {
+  background: #8b7cff;
+  box-shadow: 0 0 0 2px rgba(139, 124, 255, 0.13);
+}
+
+.qr-root[data-qr-status="redirecting"] .qr-subtitle i {
+  background: #00c1e0;
+  box-shadow: 0 0 0 2px rgba(0, 193, 224, 0.13);
+}
+
+.qr-root[data-qr-status="error"] .qr-subtitle i {
+  background: #ff6b6b;
+  box-shadow: 0 0 0 2px rgba(255, 107, 107, 0.13);
 }
 
 .qr-close,
@@ -320,11 +396,13 @@
 }
 
 .qr-loading {
-  min-width: 96px;
-  display: flex;
+  min-width: 166px;
+  display: grid;
+  grid-template-columns: 23px max-content 22px;
   align-items: center;
-  gap: 9px;
-  color: #697386;
+  gap: 8px;
+  color: #566276;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfcff 100%);
 }
 
 .qr-message-row {
@@ -338,6 +416,15 @@
 .qr-system-message {
   max-width: 82%;
   color: #3b4556;
+}
+
+.qr-error-message {
+  color: #7a2b34;
+  background: #fff7f7;
+  box-shadow:
+    inset 3px 0 0 #ff8a8a,
+    0 1px 2px rgba(25, 34, 54, 0.04),
+    0 4px 14px rgba(25, 34, 54, 0.05);
 }
 
 .qr-bot-avatar {
@@ -357,8 +444,40 @@
   overflow: visible;
 }
 
+.qr-loading-icon {
+  width: 23px;
+  height: 23px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #4f67e8;
+  background: #f0f3ff;
+}
+
+.qr-loading-icon svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.qr-status-ring {
+  opacity: 0.5;
+  animation: qr-status-spin 1100ms linear infinite;
+  transform-origin: 12px 12px;
+}
+
+.qr-status-bolt {
+  fill: currentColor;
+  stroke: none;
+}
+
 .qr-loading-label {
   white-space: nowrap;
+  font-weight: 600;
 }
 
 .qr-loading-dots {
@@ -414,6 +533,13 @@
     0 10px 26px rgba(20, 28, 45, 0.09);
 }
 
+.qr-busy .qr-composer {
+  border-color: #d6dcfb;
+  background:
+    linear-gradient(#ffffff, #ffffff) padding-box,
+    linear-gradient(120deg, rgba(79, 103, 232, 0.55), rgba(0, 193, 224, 0.35)) border-box;
+}
+
 .qr-input {
   min-width: 0;
   flex: 1;
@@ -443,22 +569,24 @@
   cursor: pointer;
   transition:
     transform 140ms ease,
-    background-color 140ms ease;
+    background-color 140ms ease,
+    box-shadow 140ms ease;
 }
 
 .qr-send svg {
-  width: 19px;
-  height: 19px;
+  width: 22px;
+  height: 22px;
   fill: none;
   stroke: currentColor;
   stroke-linecap: round;
   stroke-linejoin: round;
-  stroke-width: 2;
+  stroke-width: 1.9;
 }
 
 .qr-send:hover {
   background: #4058d8;
   transform: scale(1.03);
+  box-shadow: 0 7px 16px rgba(79, 103, 232, 0.22);
 }
 
 .qr-send:disabled,
@@ -532,6 +660,12 @@
     0 8px 18px rgba(25, 34, 54, 0.08);
 }
 
+.qr-choice:disabled {
+  cursor: progress;
+  opacity: 0.62;
+  transform: none;
+}
+
 .qr-choice-index {
   width: 22px;
   height: 22px;
@@ -603,6 +737,35 @@
   }
 }
 
+@keyframes qr-soft-pulse {
+  0% {
+    opacity: 0.7;
+    transform: scale(0.94);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.22);
+  }
+}
+
+@keyframes qr-status-dot {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(0.78);
+  }
+}
+
+@keyframes qr-status-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 @keyframes qr-typing-dot {
   0%,
   60%,
@@ -625,6 +788,9 @@
   .qr-panel .qr-header,
   .qr-panel .qr-messages,
   .qr-panel .qr-form,
+  .qr-busy .qr-fab::before,
+  .qr-brand-mark::after,
+  .qr-status-ring,
   .qr-loading-dots i {
     animation: none;
     transition: none;

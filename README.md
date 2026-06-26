@@ -121,6 +121,35 @@ Response:
 - `0.6 <= confidence < 0.85`: show candidate buttons.
 - `< 0.6` or `selectedUrl === null`: show a failure message.
 
+## UI State Flow
+
+The chat UI uses one shared status value so the header, floating button, input, and loading bubble stay consistent:
+
+| Status | When it appears | User-facing copy |
+| --- | --- | --- |
+| `idle` | Panel is ready | `바로 찾을 준비가 됐어요` |
+| `analyzing` | Local DOM and root page candidates are being collected | `페이지를 분석하고 있어요` |
+| `thinking` | Candidate list has been sent to the API | `AI가 후보를 고르고 있어요` |
+| `found` | A valid candidate was selected | `이동할 페이지를 찾았어요` |
+| `redirecting` | The user is about to be redirected | `페이지로 이동 중이에요` |
+| `done` | Medium-confidence results are waiting for user choice | `선택을 기다리고 있어요` |
+| `error` | The request failed or no useful candidate exists | `다시 시도할 수 있어요` |
+
+During busy states, the input placeholder changes to `...`, `분석 중...`, or `이동 중...`, the launcher shows a subtle pulse, and the loading bubble shows a small status icon. Users with reduced motion enabled receive the same state copy without animation.
+
+## Error And Usage Cases
+
+| Case | Behavior |
+| --- | --- |
+| No candidates found | Shows `현재 페이지에서 이동할 만한 링크를 찾지 못했어요. 다른 표현으로 다시 시도해주세요.` |
+| API endpoint is missing | Shows a friendly `extension/config.js` setup message. |
+| Timeout, network, or CORS issue | Shows `응답 시간이 초과됐어요. 잠시 후 다시 시도해주세요.` |
+| Lambda/model error | Shows a general retry message and logs the original error to the browser console. |
+| High confidence | Shows found and redirecting states, then calls `window.location.assign(...)`. |
+| Medium confidence | Shows up to 3 candidate buttons; clicking one switches to redirecting state. |
+| Low confidence or invalid model URL | Shows the failure message and returns to an editable input. |
+| Duplicate submit while busy | Ignored so only one request is in flight. |
+
 ## Candidate Collection
 
 The content script collects:
@@ -154,6 +183,19 @@ Manual extension test:
    - `다운로드 페이지 열어줘`
    - `고객센터 이동`
    - `회원가입 하려면 어디로 가야 해?`
+
+UI state test:
+
+1. Open `http://127.0.0.1:8080/test-pages/sample.html?ui=15`.
+2. Check the default floating button and panel open/close animation.
+3. Type a query and confirm the send button changes from disabled to active.
+4. Submit a query and confirm the header status, input placeholder, floating button pulse, and loading bubble move through analyzing/thinking states.
+5. In mock mode, submit a normal matching query and confirm candidate buttons appear.
+6. Submit a query containing `바로`, `즉시`, `열어`, or `이동` and confirm the redirecting state appears before navigation.
+7. Submit an unrelated query and confirm the failure copy appears.
+8. Stop the API server or point `QR_API_ENDPOINT` to an invalid URL and confirm the timeout/network error.
+9. Resize to a mobile-width viewport and confirm the panel, input, and candidate buttons do not overlap.
+10. Enable reduced motion in the browser or OS and confirm animations are removed while state copy remains visible.
 
 Lambda API test:
 
